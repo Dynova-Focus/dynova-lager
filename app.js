@@ -6,17 +6,17 @@ const meldung = document.querySelector('output')
 
 const STAENDE = { voll: 'Voll', knapp: 'Knapp', leer: 'Leer' }
 const ZUSTAENDE = { ok: 'Funktioniert', maengel: 'Mit Mängeln', defekt: 'Defekt' }
-const TOKEN_LINK = 'https://github.com/settings/personal-access-tokens/new?name=Dynova+Lager&description=Zugang+zum+Dynova+Lager&target_name=Dynova-Focus&expires_in=366&contents=write'
+const TOKEN_LINK = 'https://github.com/settings/personal-access-tokens/new'
 
 let daten = null
 let server = null
-let user = null
+let ich = null
 let offen = 0
 let kette = Promise.resolve()
 let suche = ''
 let meldungTimer
 
-const leer = () => ({ orte: [], dinge: [], leute: {} })
+const leer = () => ({ orte: [], dinge: [] })
 
 const esc = wert => String(wert ?? '').replace(/[&<>"']/g, z => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[z])
 
@@ -25,8 +25,7 @@ const cache = {
   schreiben(wert) { try { localStorage.setItem('lager-cache', JSON.stringify(wert)) } catch {} }
 }
 
-const anzeigeName = login => daten?.leute?.[login] || login
-const personName = login => login === user?.login ? 'dir' : anzeigeName(login)
+const personName = wer => wer === ich ? 'dir' : wer
 
 const nachName = (a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })
 const nachId = (a, b) => a.id.localeCompare(b.id, 'de', { numeric: true })
@@ -69,12 +68,8 @@ function logbuch(x, kontext, text) {
 }
 
 function aendern(text, fn) {
-  const kontext = { jetzt: new Date().toISOString(), wer: user.login }
-  const anwenden = d => {
-    d.leute ??= {}
-    d.leute[user.login] = user.name || user.login
-    fn(d, kontext)
-  }
+  const kontext = { jetzt: new Date().toISOString(), wer: ich }
+  const anwenden = d => fn(d, kontext)
   anwenden(daten)
   auffrischen()
   offen++
@@ -92,9 +87,9 @@ async function sichern(text, anwenden) {
     const neu = structuredClone(server.daten)
     anwenden(neu)
     try {
-      const sha = await gh.speichern(neu, server.sha, `${user.name || user.login}: ${text}`)
+      const sha = await gh.speichern(neu, server.sha, `${ich}: ${text}`)
       server = { daten: neu, sha }
-      cache.schreiben({ user, ...server })
+      cache.schreiben(server)
       melden('Gespeichert')
       return
     } catch (fehler) {
@@ -112,9 +107,8 @@ async function sichern(text, anwenden) {
 async function neuLaden() {
   const { daten: d, sha } = await gh.laden()
   server = { daten: d ?? leer(), sha }
-  server.daten.leute ??= {}
   if (!offen) daten = structuredClone(server.daten)
-  cache.schreiben({ user, ...server })
+  cache.schreiben(server)
 }
 
 function auffrischen() {
@@ -141,7 +135,7 @@ function steuerung(x) {
       `<button data-tun="stand" data-id="${x.id}" data-wert="${wert}" aria-pressed="${x.stand === wert}">${text}</button>`).join('')}</span>`
   }
   if (!x.bei) return `<button data-tun="nehmen" data-id="${x.id}">Nehmen</button>`
-  if (x.bei === user.login) return `<button data-tun="zurueck" data-id="${x.id}" data-sekundaer>Zurück</button>`
+  if (x.bei === ich) return `<button data-tun="zurueck" data-id="${x.id}" data-sekundaer>Zurück</button>`
   return `<button data-tun="nehmen" data-id="${x.id}" data-sekundaer>Übernehmen</button>`
 }
 
@@ -157,26 +151,41 @@ function ortRaster(orte) {
 function loginSeite(hinweis = '') {
   nav.hidden = true
   main.innerHTML = `
-<h1>Willkommen im Dynova Lager</h1>
-<p>Jedes Handy und jeder Laptop wird einmal eingerichtet. Danach bleibst du angemeldet, bis der Schlüssel nach einem Jahr abläuft.</p>
+<h1>Lager</h1>
+<p>Am einfachsten öffnest du den Einrichtungslink, den du bekommen hast. Oder du gibst deinen Namen und deinen Schlüssel hier ein. Das Gerät bleibt danach angemeldet.</p>
 ${hinweis ? `<p role="alert">${esc(hinweis)}</p>` : ''}
-<ol data-schritte>
-<li><a href="${TOKEN_LINK}" target="_blank" rel="noopener">Schlüssel auf GitHub erstellen</a> (dazu bei GitHub angemeldet sein)</li>
-<li><strong>Resource owner:</strong> Dynova-Focus</li>
-<li><strong>Repository access:</strong> Only select repositories → <code>dynova-lager-data</code></li>
-<li><strong>Permissions:</strong> Contents → <em>Read and write</em></li>
-<li>Unten auf <em>Generate token</em>, Schlüssel kopieren und hier einfügen</li>
-</ol>
 <form data-form="login">
+<label>Dein Name<input name="name" required autocomplete="given-name" placeholder="z. B. Lena" value="${esc(gh.name.get())}"></label>
 <label>Schlüssel<input name="token" type="password" autocomplete="off" required placeholder="github_pat_…"></label>
 <button>Verbinden</button>
 </form>`
 }
 
 function abgelaufen() {
-  gh.token.weg()
+  gh.abmelden()
   daten = null
-  loginSeite('Dein Schlüssel ist abgelaufen oder ungültig. Bitte einen neuen erstellen.')
+  ich = null
+  loginSeite('Dein Schlüssel ist abgelaufen oder ungültig. Frag nach einem neuen Einrichtungslink.')
+}
+
+async function anmelden(name, schluessel) {
+  gh.token.set(schluessel)
+  gh.name.set(name)
+  ich = name
+  try {
+    if (!await gh.zugriff()) throw Object.assign(new Error(), { status: 403 })
+    await neuLaden()
+    location.hash = '#/'
+    zeigen()
+  } catch (fehler) {
+    gh.abmelden()
+    ich = null
+    loginSeite(fehler.status === 401
+      ? 'Dieser Schlüssel funktioniert nicht. Wurde er vollständig kopiert?'
+      : fehler.status === 403 || fehler.status === 404
+        ? 'Der Schlüssel hat keinen Schreibzugriff auf das Lager oder wurde noch nicht freigegeben.'
+        : 'Keine Verbindung zu GitHub. Bitte nochmals versuchen.')
+  }
 }
 
 function startSeite() {
@@ -197,7 +206,7 @@ function startListe() {
     bereich.innerHTML = (dinge.length ? liste(dinge) : '') + (orte.length ? ortRaster(orte) : '') || '<p>Nichts gefunden.</p>'
     return
   }
-  const meine = daten.dinge.filter(x => x.bei === user.login).sort(nachName)
+  const meine = daten.dinge.filter(x => x.bei === ich).sort(nachName)
   bereich.innerHTML = (meine.length ? `<h2>Bei dir</h2>${liste(meine)}` : '') + `<h2>Orte</h2>${ortRaster([...daten.orte].sort(nachId))}`
 }
 
@@ -248,7 +257,7 @@ function dingSeite(id) {
 <input name="text" required aria-label="Eintrag" placeholder="z. B. ADC-Kanal 3 rauscht">
 <button>Eintragen</button>
 </form>
-<ol>${[...(x.verlauf ?? [])].reverse().map(v => `<li><time>${datum(v.t)}</time> <strong>${esc(anzeigeName(v.wer))}</strong> ${esc(v.text)}</li>`).join('')}</ol>
+<ol>${[...(x.verlauf ?? [])].reverse().map(v => `<li><time>${datum(v.t)}</time> <strong>${esc(v.wer)}</strong> ${esc(v.text)}</li>`).join('')}</ol>
 <details>
 <summary>Bearbeiten</summary>
 ${dingFormular(x)}
@@ -291,9 +300,9 @@ function neuSeite(ortId) {
 
 function ausgeliehenSeite() {
   const weg = daten.dinge.filter(x => x.bei)
-  const meine = weg.filter(x => x.bei === user.login).sort(nachName)
+  const meine = weg.filter(x => x.bei === ich).sort(nachName)
   const andere = {}
-  for (const x of weg.filter(x => x.bei !== user.login)) (andere[x.bei] ??= []).push(x)
+  for (const x of weg.filter(x => x.bei !== ich)) (andere[x.bei] ??= []).push(x)
   main.innerHTML = `
 <h1>Ausgeliehen</h1>
 <h2>Bei dir</h2>
@@ -322,11 +331,40 @@ function mehrSeite() {
 </form>
 <h2>Etiketten</h2>
 <p><a href="#/etiketten" role="button">QR-Codes drucken</a></p>
+<h2>Zugänge</h2>
+<p><a href="#/zugang" role="button">Einrichtungslink erstellen</a></p>
 <h2>Verlauf</h2>
 <p><a href="https://github.com/${gh.REPO}/commits/main" target="_blank" rel="noopener">Alle Änderungen auf GitHub ansehen</a></p>
-<h2>Konto</h2>
-<p>Angemeldet als <strong>${esc(user.name || user.login)}</strong> (${esc(user.login)})</p>
+<h2>Dieses Gerät</h2>
+<form data-form="name">
+<label>Dein Name<input name="name" required value="${esc(ich)}"></label>
+<button>Ändern</button>
+</form>
 <button data-tun="abmelden" data-sekundaer>Abmelden</button>`
+}
+
+function zugangSeite() {
+  main.innerHTML = `
+<h1>Einrichtungslink</h1>
+<p>Für jede Person einen Schlüssel erstellen und hier mit ihrem Namen zu einem Link verbinden. Den Link schickst du ihr, oder sie scannt den QR-Code. Er funktioniert auf beliebig vielen Geräten.</p>
+<details>
+<summary>Schlüssel auf GitHub erstellen</summary>
+<ol data-schritte>
+<li><a href="${TOKEN_LINK}" target="_blank" rel="noopener">Neuen fine-grained Token öffnen</a></li>
+<li><strong>Token name:</strong> z. B. Lager Lena</li>
+<li><strong>Resource owner:</strong> Dynova-Focus</li>
+<li><strong>Expiration:</strong> Custom, etwa ein Jahr</li>
+<li><strong>Repository access:</strong> Only select repositories → dynova-lager-data</li>
+<li><strong>Permissions:</strong> Contents → Read and write</li>
+<li><em>Generate token</em>, kopieren, unten einfügen. Falls nötig unter Org → Personal access tokens → Pending requests freigeben.</li>
+</ol>
+</details>
+<form data-form="zugang">
+<label>Name<input name="name" required placeholder="z. B. Lena"></label>
+<label>Schlüssel<input name="token" type="password" autocomplete="off" required placeholder="github_pat_…"></label>
+<button>Link erstellen</button>
+</form>
+<section data-zugang></section>`
 }
 
 function qr(text) {
@@ -357,11 +395,12 @@ const routen = [
   [/^#\/ausgeliehen$/, ausgeliehenSeite],
   [/^#\/knapp$/, knappSeite],
   [/^#\/mehr$/, mehrSeite],
-  [/^#\/etiketten$/, etikettenSeite]
+  [/^#\/etiketten$/, etikettenSeite],
+  [/^#\/zugang$/, zugangSeite]
 ]
 
 function zeigen() {
-  if (!daten || !user) return
+  if (!daten || !ich) return
   nav.hidden = false
   const hash = decodeURIComponent(location.hash)
   for (const a of nav.querySelectorAll('a')) a.toggleAttribute('aria-current', hash.startsWith(a.getAttribute('href')))
@@ -389,7 +428,7 @@ const aktionen = {
     aendern(`nimmt ${x.name}`, (d, k) => {
       const y = finde(d, id)
       if (!y) return
-      logbuch(y, k, y.bei && y.bei !== k.wer ? `übernommen von ${d.leute[y.bei] || y.bei}` : 'genommen')
+      logbuch(y, k, y.bei && y.bei !== k.wer ? `übernommen von ${y.bei}` : 'genommen')
       y.bei = k.wer
       y.seit = k.jetzt
     })
@@ -424,35 +463,45 @@ const aktionen = {
   },
   drucken() { print() },
   abmelden() {
-    if (!confirm('Abmelden? Du brauchst danach wieder einen Schlüssel.')) return
-    gh.token.weg()
+    if (!confirm('Dieses Gerät abmelden? Du brauchst danach wieder deinen Einrichtungslink.')) return
+    gh.abmelden()
     daten = null
-    user = null
+    ich = null
     loginSeite()
+  },
+  async kopieren({ wert }) {
+    try {
+      await navigator.clipboard.writeText(wert)
+      melden('Link kopiert')
+    } catch {
+      melden('Kopieren nicht möglich', true)
+    }
   }
 }
 
 const formulare = {
-  async login(form) {
-    const schluessel = new FormData(form).get('token').trim()
-    const knopf = form.querySelector('button')
-    knopf.disabled = true
-    gh.token.set(schluessel)
-    try {
-      user = await gh.ich()
-      if (!await gh.zugriff()) throw Object.assign(new Error(), { status: 403 })
-      await neuLaden()
-      location.hash = '#/'
-      zeigen()
-    } catch (fehler) {
-      gh.token.weg()
-      user = null
-      loginSeite(fehler.status === 401
-        ? 'Dieser Schlüssel funktioniert nicht. Wurde er vollständig kopiert?'
-        : fehler.status === 403 || fehler.status === 404
-          ? 'Der Schlüssel hat keinen Schreibzugriff auf dynova-lager-data. Prüfe Repository und Permissions, oder warte, bis ein Org-Admin den Schlüssel freigegeben hat.'
-          : 'Keine Verbindung zu GitHub. Bitte nochmals versuchen.')
-    }
+  login(form) {
+    const f = Object.fromEntries(new FormData(form))
+    form.querySelector('button').disabled = true
+    anmelden(f.name.trim(), f.token.trim())
+  },
+  name(form) {
+    const name = new FormData(form).get('name').trim()
+    if (!name) return
+    ich = name
+    gh.name.set(name)
+    melden('Name geändert')
+  },
+  zugang(form) {
+    const f = Object.fromEntries(new FormData(form))
+    const parameter = new URLSearchParams({ name: f.name.trim(), schluessel: f.token.trim() })
+    const link = `${location.origin}${location.pathname}#/einrichten?${parameter}`
+    main.querySelector('[data-zugang]').innerHTML = `
+<h2>Link für ${esc(f.name.trim())}</h2>
+<figure>${qr(link)}<figcaption><small>Mit der Handykamera scannen</small></figcaption></figure>
+<p><button data-tun="kopieren" data-wert="${esc(link)}">Link kopieren</button></p>
+<p><small>Der Link enthält den Schlüssel. Nur direkt an die Person schicken, nicht in Gruppenchats.</small></p>`
+    form.reset()
   },
   ding(form) {
     const f = Object.fromEntries(new FormData(form))
@@ -552,12 +601,13 @@ document.addEventListener('submit', e => {
 })
 
 addEventListener('hashchange', () => {
+  if (location.hash.startsWith('#/einrichten?')) return start()
   zeigen()
   scrollTo(0, 0)
 })
 
 document.addEventListener('visibilitychange', async () => {
-  if (document.hidden || !user || offen) return
+  if (document.hidden || !ich || offen) return
   try {
     await neuLaden()
     auffrischen()
@@ -565,26 +615,30 @@ document.addEventListener('visibilitychange', async () => {
 })
 
 async function start() {
-  if (!gh.token.get()) return loginSeite()
+  const einrichten = location.hash.match(/^#\/einrichten\?(.+)$/)
+  if (einrichten) {
+    const parameter = new URLSearchParams(einrichten[1])
+    history.replaceState(null, '', location.pathname)
+    if (parameter.get('name') && parameter.get('schluessel')) {
+      main.innerHTML = '<p>Gerät wird eingerichtet …</p>'
+      return anmelden(parameter.get('name'), parameter.get('schluessel'))
+    }
+  }
+  ich = gh.name.get()
+  if (!gh.token.get() || !ich) return loginSeite()
   const gespeichert = cache.lesen()
-  if (gespeichert?.daten && gespeichert.user) {
-    user = gespeichert.user
+  if (gespeichert?.daten) {
     daten = structuredClone(gespeichert.daten)
-    server = { daten: gespeichert.daten, sha: gespeichert.sha }
+    server = gespeichert
     zeigen()
   } else {
     main.innerHTML = '<p>Lager wird geladen …</p>'
   }
   try {
-    user = await gh.ich()
     await neuLaden()
     auffrischen()
   } catch (fehler) {
-    if (fehler.status === 401) return abgelaufen()
-    if (fehler.status === 403 || fehler.status === 404) {
-      gh.token.weg()
-      return loginSeite('Kein Zugriff mehr auf das Lager. Bitte einen neuen Schlüssel erstellen.')
-    }
+    if (fehler.status === 401 || fehler.status === 403 || fehler.status === 404) return abgelaufen()
     if (daten) melden('Offline: zeige letzten Stand', true)
     else main.innerHTML = '<h1>Keine Verbindung</h1><p>GitHub ist gerade nicht erreichbar. Seite später neu laden.</p>'
   }

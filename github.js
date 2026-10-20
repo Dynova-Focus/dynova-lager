@@ -2,10 +2,16 @@ export const REPO = 'Dynova-Focus/dynova-lager-data'
 const DATEI = 'lager.json'
 const API = 'https://api.github.com'
 
-export const token = {
-  get: () => { try { return localStorage.getItem('lager-token') } catch { return null } },
-  set: t => { try { localStorage.setItem('lager-token', t) } catch {} },
-  weg: () => { try { localStorage.removeItem('lager-token'); localStorage.removeItem('lager-cache') } catch {} }
+const speicher = schluessel => ({
+  get: () => { try { return localStorage.getItem(schluessel) } catch { return null } },
+  set: wert => { try { localStorage.setItem(schluessel, wert) } catch {} }
+})
+
+export const token = speicher('lager-token')
+export const name = speicher('lager-name')
+
+export function abmelden() {
+  try { ['lager-token', 'lager-name', 'lager-cache'].forEach(k => localStorage.removeItem(k)) } catch {}
 }
 
 async function anfrage(pfad, optionen = {}) {
@@ -34,8 +40,6 @@ const zuBase64 = text => {
 }
 
 const ausBase64 = text => new TextDecoder().decode(Uint8Array.from(atob(text.replace(/\s/g, '')), c => c.charCodeAt(0)))
-
-export const ich = () => anfrage('/user')
 
 export const zugriff = async () => (await anfrage(`/repos/${REPO}`)).permissions?.push === true
 

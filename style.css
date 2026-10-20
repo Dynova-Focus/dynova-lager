@@ -1,30 +1,34 @@
 :root {
   color-scheme: light dark;
-  --grund: #f3f4f7;
+  --grund: #fafcfc;
   --flaeche: #fff;
-  --text: #14181f;
-  --leise: #5d6673;
-  --linie: #dde1e7;
-  --akzent: #0b63c4;
-  --auf-akzent: #fff;
-  --gruen: #2e7d32;
-  --gelb: #b26a00;
-  --rot: #c62828;
-  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text: #000;
+  --leise: #737373;
+  --linie: #e3ecec;
+  --haupt: #015d67;
+  --akzent: #00acb1;
+  --auf-haupt: #fff;
+  --schatten: 0 2px 14px rgba(1, 93, 103, .08);
+  --gruen: #2e8b57;
+  --gelb: #d08a0e;
+  --rot: #c8423b;
+  font: 16px/1.5 Montserrat, system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --grund: #0f1217;
-    --flaeche: #181c23;
-    --text: #e8ebf0;
-    --leise: #98a1ae;
-    --linie: #2a303a;
-    --akzent: #5aa5f5;
-    --auf-akzent: #07111d;
-    --gruen: #3f9f46;
-    --gelb: #d98e1f;
-    --rot: #e05656;
+    --grund: #0b1416;
+    --flaeche: #132124;
+    --text: #e9f1f1;
+    --leise: #93a5a7;
+    --linie: #223538;
+    --haupt: #00acb1;
+    --akzent: #3fd0d4;
+    --auf-haupt: #031618;
+    --schatten: none;
+    --gruen: #3aa86b;
+    --gelb: #e3a32f;
+    --rot: #e0645c;
   }
 }
 
@@ -45,58 +49,74 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: .25rem 1rem;
-  padding: .6rem 1rem;
+  padding: .7rem 1rem;
   background: var(--flaeche);
+  box-shadow: var(--schatten);
   border-bottom: 1px solid var(--linie);
 }
 
 header > a {
-  font-weight: 700;
-  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--haupt);
+  font-size: 1.2rem;
+  font-weight: 600;
   text-decoration: none;
 }
 
-nav:not([hidden]) { display: flex }
+header img {
+  width: 1.9rem;
+  height: auto;
+}
+
+nav:not([hidden]) {
+  display: flex;
+  gap: 1rem;
+}
 
 nav a {
-  padding: .4rem .6rem;
-  border-radius: .5rem;
-  color: var(--leise);
+  padding: .3rem 0;
+  border-bottom: 2px solid transparent;
+  color: var(--haupt);
+  font-weight: 500;
   text-decoration: none;
+  transition: color .25s;
 }
 
-nav a[aria-current] {
-  background: var(--grund);
-  color: var(--text);
-}
+nav a:hover, nav a[aria-current] { color: var(--akzent) }
+
+nav a[aria-current] { border-color: var(--akzent) }
 
 main {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 1rem 1rem 6rem;
+  padding: 1.25rem 1rem 6rem;
 }
 
 h1 {
-  font-size: 1.6rem;
-  line-height: 1.2;
   margin: .5rem 0 1rem;
+  color: var(--haupt);
+  font-size: 1.7rem;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
 h1 small {
-  font-weight: 400;
   color: var(--leise);
+  font-weight: 400;
 }
 
 h2 {
-  font-size: .8rem;
-  text-transform: uppercase;
-  letter-spacing: .06em;
+  margin: 2rem 0 .6rem;
   color: var(--leise);
-  margin: 1.75rem 0 .5rem;
+  font-size: .8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
 }
 
-a { color: var(--akzent) }
+a { color: var(--haupt) }
 
 small {
   color: var(--leise);
@@ -114,11 +134,12 @@ ul li {
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .7rem .75rem;
-  margin-bottom: .5rem;
+  padding: .8rem 1rem;
+  margin-bottom: .6rem;
   background: var(--flaeche);
   border: 1px solid var(--linie);
-  border-radius: .75rem;
+  border-radius: 1rem;
+  box-shadow: var(--schatten);
 }
 
 ul li > a:first-child {
@@ -136,15 +157,26 @@ ul li strong, ul li small {
 ul[data-raster] {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
-  gap: .5rem;
+  gap: .6rem;
 }
 
-ul[data-raster] li { margin: 0 }
+ul[data-raster] li {
+  margin: 0;
+  transition: border-color .25s, transform .25s;
+}
 
-ul[data-raster] strong { font-size: 1.25rem }
+ul[data-raster] li:hover {
+  border-color: var(--akzent);
+  transform: translateY(-2px);
+}
+
+ul[data-raster] strong {
+  color: var(--haupt);
+  font-size: 1.3rem;
+}
 
 ol li {
-  padding: .55rem 0;
+  padding: .6rem 0;
   border-bottom: 1px solid var(--linie);
 }
 
@@ -163,23 +195,28 @@ time {
 button, [role=button] {
   display: inline-block;
   min-height: 2.75rem;
-  padding: .6rem 1rem;
+  padding: .6rem 1.4rem;
   border: 1px solid transparent;
-  border-radius: .6rem;
-  background: var(--akzent);
-  color: var(--auf-akzent);
+  border-radius: 2rem;
+  background: var(--haupt);
+  color: var(--auf-haupt);
   font: inherit;
   font-weight: 600;
   text-decoration: none;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .25s, transform .25s;
 }
 
+button:hover, [role=button]:hover { background-color: var(--akzent) }
+
 button[data-sekundaer], [role=group] button {
-  background: var(--grund);
-  color: var(--text);
+  background: var(--flaeche);
+  color: var(--haupt);
   border-color: var(--linie);
 }
+
+button[data-sekundaer]:hover, [role=group] button:hover { border-color: var(--akzent) }
 
 button[data-gefahr] {
   background: none;
@@ -193,16 +230,17 @@ button:disabled { opacity: .5 }
 
 [role=group] button {
   min-width: 3.3rem;
-  padding: .5rem;
+  padding: .5rem .6rem;
   border-radius: 0;
   font-weight: 500;
 }
 
-[role=group] button:first-child { border-radius: .6rem 0 0 .6rem }
-[role=group] button:last-child { border-radius: 0 .6rem .6rem 0 }
+[role=group] button:first-child { border-radius: 2rem 0 0 2rem }
+[role=group] button:last-child { border-radius: 0 2rem 2rem 0 }
 [role=group] button + button { margin-left: -1px }
 
 [role=group] [aria-pressed=true] {
+  border-color: transparent;
   color: #fff;
   font-weight: 700;
 }
@@ -215,49 +253,56 @@ input, select, textarea {
   display: block;
   width: 100%;
   margin-top: .3rem;
-  padding: .65rem .75rem;
+  padding: .7rem .9rem;
   border: 1px solid var(--linie);
-  border-radius: .6rem;
+  border-radius: .75rem;
   background: var(--flaeche);
   color: inherit;
   font: inherit;
 }
 
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--akzent);
+  outline-offset: -1px;
+}
+
 search input {
   margin: 0 0 .5rem;
-  padding: .8rem 1rem;
+  padding: .85rem 1.2rem;
+  border-radius: 2rem;
+  box-shadow: var(--schatten);
 }
 
 label {
   display: block;
-  margin-bottom: .9rem;
+  margin-bottom: 1rem;
   font-weight: 600;
 }
 
 fieldset {
   border: 0;
   padding: 0;
-  margin: 0 0 .9rem;
+  margin: 0 0 1rem;
 }
 
 legend {
-  font-weight: 600;
   margin-bottom: .4rem;
+  font-weight: 600;
 }
 
 fieldset label, label:has(> [type=checkbox]) {
   display: flex;
-  gap: .7rem;
   align-items: flex-start;
+  gap: .7rem;
   font-weight: 400;
 }
 
 fieldset label {
-  padding: .7rem;
-  margin-bottom: .4rem;
+  padding: .8rem 1rem;
+  margin-bottom: .5rem;
   background: var(--flaeche);
   border: 1px solid var(--linie);
-  border-radius: .6rem;
+  border-radius: 1rem;
 }
 
 fieldset label:has(:checked) { border-color: var(--akzent) }
@@ -265,10 +310,11 @@ fieldset label:has(:checked) { border-color: var(--akzent) }
 fieldset small { display: block }
 
 [type=radio], [type=checkbox] {
+  flex: none;
   width: 1.2rem;
   height: 1.2rem;
   margin: .15rem 0 0;
-  flex: none;
+  accent-color: var(--haupt);
 }
 
 form:has([value=stueck]:checked) [data-nur=teil],
@@ -288,10 +334,12 @@ details {
   border-top: 1px solid var(--linie);
 }
 
+p + details, h1 + p + details { margin-top: 1rem }
+
 summary {
-  cursor: pointer;
+  color: var(--haupt);
   font-weight: 600;
-  color: var(--akzent);
+  cursor: pointer;
 }
 
 details[open] summary { margin-bottom: 1rem }
@@ -301,8 +349,13 @@ details form + button, form button + button { margin-top: .5rem }
 dl {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: .45rem 1rem;
+  gap: .5rem 1.25rem;
   margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: 1rem;
+  box-shadow: var(--schatten);
 }
 
 dt { color: var(--leise) }
@@ -313,8 +366,8 @@ dd {
 }
 
 [role=alert] {
-  padding: .75rem 1rem;
-  border-radius: .6rem;
+  padding: .8rem 1rem;
+  border-radius: .75rem;
   background: color-mix(in srgb, var(--rot) 15%, transparent);
 }
 
@@ -324,10 +377,10 @@ output {
   bottom: max(1rem, env(safe-area-inset-bottom));
   translate: -50% 0;
   max-width: calc(100% - 2rem);
-  padding: .6rem 1.1rem;
+  padding: .6rem 1.2rem;
   border-radius: 2rem;
-  background: var(--text);
-  color: var(--grund);
+  background: var(--haupt);
+  color: var(--auf-haupt);
   font-weight: 600;
   opacity: 0;
   transition: opacity .2s;
@@ -355,9 +408,15 @@ figure {
   padding: .75rem;
   background: #fff;
   color: #000;
-  border: 1px dashed #999;
+  border: 1px dashed #9ab;
+  border-radius: .5rem;
   text-align: center;
   break-inside: avoid;
+}
+
+[data-zugang] figure {
+  max-width: 16rem;
+  border-style: solid;
 }
 
 figure svg {
